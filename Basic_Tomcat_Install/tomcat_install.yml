@@ -1,0 +1,7 @@
+---
+- name: Install and Set up Tomcat 
+  hosts: tomcat_server
+  roles:
+    - role: tomcat
+      become: true
+      become_user: root        
