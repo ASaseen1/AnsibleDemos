@@ -1,6 +1,0 @@
----
-tomcat_installation_path: "/opt/tomcat"
-tomcat_user: "tomcat"
-tomcat_group: "tomcat"
-tomcat_service_name: "tomcat"
-service_add_path: "/etc/systemd/system"
