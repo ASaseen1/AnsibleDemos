@@ -1,0 +1,88 @@
+---
+- name: Set up Java for Tomcat Installation
+  yum: 
+   name: java-1.8.0-openjdk.x86_64
+   state: latest
+
+- name: Check the Java Version
+  shell: "java -version"
+  register: Java_version
+
+- name: Display the Java version
+  debug: msg="{{Java_version}}"
+
+- name: Create a dedicated group for Apache Tomcat
+  group:
+    name: "{{tomcat_group}}"
+    state: present
+
+- name: Create a User for tomcat
+  user:
+    name: "{{tomcat_user}}"
+    group: "{{tomcat_group}}"
+
+- name: Create an installation directory for tomcat
+  file: 
+    path: "{{tomcat_installation_path}}"
+    state: directory
+    owner: "{{tomcat_user}}"
+    group: "{{tomcat_group}}"
+
+- name: Unzip the tomcat archive
+  unarchive:
+    src: ./tomcat_installer/apache-tomcat-8.0.52.tar.gz
+    dest: "{{tomcat_installation_path}}"
+  register: tomcat_unarchive
+  no_log: true
+
+- name: Set up required file permissions for tomcat
+  file:
+    path: "{{item.path}}"
+    group: "{{item.group}}"
+    owner: "{{item.owner}}"
+    mode: "{{item.mode}}"
+    recurse: "{{item.recurse}}"
+    state: directory
+  with_items: "{{tomcat_mod_dirs}}"
+  register: tomcat_dir_mods
+
+- name: Check if tomcat service exists
+  stat:
+    path: /etc/systemd/system/tomcat.service
+  register: tomcat_service_stat
+
+- name: Stop service if it exists
+  service:
+     name: "{{tomcat_service_name}}"
+     state: stopped
+  when: tomcat_service_stat.stat.exists == True
+
+- name: Copy the war file to the webapss folder to test tomcat setup
+  copy:
+    remote_src: yes
+    src: ./tomcat_installer/sample.war
+    dest: "{{tomcat_installation_path}}/apache-tomcat-8.0.52/webapps/sample.war"
+    owner: "{{tomcat_user}}"
+    group: "{{tomcat_group}}"
+
+- name: Add service if tomcat service does not exist
+  copy: 
+    remote_src: yes
+    src: "{{role_path}}/files/tomcat.service"
+    dest: "/etc/systemd/system/tomcat.service"
+  register: service_add
+  when: tomcat_service_stat.stat.exists == False
+
+- name: Replace default tomcat-users.xml with user defined file.
+  template: 
+    src: tomcat-users.xml.j2
+    dest: "{{tomcat_installation_path}}/apache-tomcat-8.0.52/conf/tomcat-users.xml"
+    group: "{{tomcat_group}}"
+    owner: "{{tomcat_user}}"
+    mode: "g+r"
+     
+- name: Start tomcat service if it is not running
+  service:
+   name: "{{tomcat_service_name}}"
+   state: started
+   enabled: yes
